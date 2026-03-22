@@ -1,6 +1,6 @@
 export const ESCROW_ADDRESS = "0x623B00cDe26c672611c67Bb9aFc4467E51a2fD0c" as const;
 export const TEE_ORACLE_ADDRESS = "0xF5baa3381436e0C8818fB5EA3dA9d40C6c49C70D" as const;
-export const TEE_AGENT_URL = "http://localhost:3001" as const;
+export const TEE_AGENT_URL = "https://93ab46af00b77ebba45695c33d3f56e693750aeb-3001.dstack-pha-prod2.phala.network" as const;
 export const USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const;
 
 export const ESCROW_ABI = [

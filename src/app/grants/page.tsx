@@ -19,7 +19,8 @@ export default function GrantsPage() {
     functionName: "grantCount",
   });
 
-  const ids = count ? Array.from({ length: Number(count) }, (_, i) => BigInt(i)) : [];
+  const grantCount = count !== undefined ? Number(count) : 0;
+  const ids = Array.from({ length: grantCount }, (_, i) => BigInt(i));
 
   const { data: grantsData } = useReadContracts({
     contracts: ids.map((id) => ({
@@ -28,6 +29,7 @@ export default function GrantsPage() {
       functionName: "grants" as const,
       args: [id] as const,
     })),
+    query: { enabled: grantCount > 0 },
   });
 
   const grants = grantsData

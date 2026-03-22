@@ -37,6 +37,7 @@ struct VerifyRequest {
     repo_owner: String,
     repo_name: String,
     commit_hash: String,
+    expected_prefix: Option<String>,
     demo_url: Option<String>,
     live_url: Option<String>,
 }
@@ -160,6 +161,21 @@ async fn verify_milestone(
         ));
     }
     info!("Commit verified on GitHub (repo: {}/{})", req.repo_owner, req.repo_name);
+
+    // 1b. Verify commit hash matches the expected prefix from the grant
+    if let Some(ref prefix) = req.expected_prefix {
+        let prefix_clean = prefix.trim_end_matches('0').to_lowercase();
+        if !prefix_clean.is_empty() && !req.commit_hash.to_lowercase().starts_with(&prefix_clean) {
+            return Err((
+                StatusCode::UNPROCESSABLE_ENTITY,
+                format!(
+                    "Commit hash does not match required prefix. Expected: {}..., Got: {}",
+                    prefix_clean, &req.commit_hash
+                ),
+            ));
+        }
+        info!("Commit prefix matched: {}", prefix_clean);
+    }
 
     // 2. Verify URLs are reachable (if provided)
     if let Some(ref url) = req.demo_url {

@@ -1,0 +1,7 @@
+services:
+  tee-agent:
+    image: ghcr.io/fozagtx/supafund-tee-agent:latest
+    ports:
+      - "3001:3001"
+    environment:
+      - TEE_PRIVATE_KEY=${TEE_PRIVATE_KEY}

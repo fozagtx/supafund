@@ -54,19 +54,40 @@ export default function GrantDetailPage({ params }: { params: Promise<{ id: stri
   const [commitHash, setCommitHash] = useState("");
   const [showVerifyForm, setShowVerifyForm] = useState<number | null>(null);
 
-  const { writeContract: verifyOnChain, data: verifyTx } = useWriteContract();
+  const { writeContractAsync: verifyOnChain, data: verifyTx } = useWriteContract();
   const { isLoading: verifyTxPending, isSuccess: verifyTxSuccess } = useWaitForTransactionReceipt({ hash: verifyTx });
 
-  const { writeContract: releaseOnChain, data: releaseTx } = useWriteContract();
+  const { writeContractAsync: releaseOnChain, data: releaseTx } = useWriteContract();
   const { isLoading: releasePending, isSuccess: releaseSuccess } = useWaitForTransactionReceipt({ hash: releaseTx });
 
-  const { writeContract: disputeOnChain, data: disputeTx } = useWriteContract();
+  const { writeContractAsync: disputeOnChain, data: disputeTx } = useWriteContract();
   const { isLoading: disputePending } = useWaitForTransactionReceipt({ hash: disputeTx });
 
   // Refetch after tx success
   if (verifyTxSuccess || releaseSuccess) {
     refetchGrant();
     refetchMilestones();
+  }
+
+  function parseError(e: unknown): string {
+    const msg = e instanceof Error ? e.message : String(e);
+    // Common contract revert reasons
+    if (msg.includes("Commit not found")) return "Commit not found in that repository. Check the owner, repo name, and commit hash.";
+    if (msg.includes("does not match required prefix")) return "Commit hash doesn't match the required prefix for this milestone. Make sure you're using a commit from the correct repo.";
+    if (msg.includes("Demo URL unreachable")) return "The demo URL could not be reached.";
+    if (msg.includes("Live URL unreachable")) return "The live URL could not be reached.";
+    if (msg.includes("Invalid commit hash hex")) return "Invalid commit hash format. Enter a 40-character hex hash (no 0x prefix needed).";
+    if (msg.includes("User rejected")) return "Transaction rejected in wallet.";
+    if (msg.includes("user rejected")) return "Transaction rejected in wallet.";
+    if (msg.includes("InvalidSignature") || msg.includes("invalid signature")) return "On-chain signature verification failed. The TEE signer may not be registered.";
+    if (msg.includes("AlreadyVerified") || msg.includes("already verified")) return "This milestone has already been verified.";
+    if (msg.includes("NotPending")) return "This milestone is not in pending status.";
+    if (msg.includes("GrantNotActive")) return "This grant is no longer active.";
+    if (msg.includes("GitHub check failed") || msg.includes("BAD_GATEWAY")) return "Could not reach GitHub API. Try again in a moment.";
+    if (msg.includes("fetch") || msg.includes("NetworkError") || msg.includes("Failed to fetch")) return "Could not reach TEE agent. Check your internet connection.";
+    // Truncate long messages
+    if (msg.length > 200) return msg.slice(0, 200) + "...";
+    return msg;
   }
 
   async function handleVerify(milestoneIndex: number) {
@@ -84,6 +105,7 @@ export default function GrantDetailPage({ params }: { params: Promise<{ id: stri
           repo_owner: repoOwner,
           repo_name: repoName,
           commit_hash: commitHash,
+          expected_prefix: milestones?.[milestoneIndex]?.requiredGitCommitPrefix,
         }),
       });
 
@@ -95,7 +117,7 @@ export default function GrantDetailPage({ params }: { params: Promise<{ id: stri
       const tee: TeeResponse = await res.json();
 
       // 2. Submit attestation on-chain
-      verifyOnChain({
+      await verifyOnChain({
         address: ESCROW_ADDRESS,
         abi: ESCROW_ABI,
         functionName: "verifyMilestone",
@@ -115,28 +137,38 @@ export default function GrantDetailPage({ params }: { params: Promise<{ id: stri
 
       setShowVerifyForm(null);
     } catch (e) {
-      setVerifyError(e instanceof Error ? e.message : "Verification failed");
+      setVerifyError(parseError(e));
     } finally {
       setVerifyingIdx(null);
     }
   }
 
-  function handleRelease(milestoneIndex: number) {
-    releaseOnChain({
-      address: ESCROW_ADDRESS,
-      abi: ESCROW_ABI,
-      functionName: "releaseMilestone",
-      args: [grantId, BigInt(milestoneIndex)],
-    });
+  async function handleRelease(milestoneIndex: number) {
+    setVerifyError(null);
+    try {
+      await releaseOnChain({
+        address: ESCROW_ADDRESS,
+        abi: ESCROW_ABI,
+        functionName: "releaseMilestone",
+        args: [grantId, BigInt(milestoneIndex)],
+      });
+    } catch (e) {
+      setVerifyError(parseError(e));
+    }
   }
 
-  function handleDispute(milestoneIndex: number) {
-    disputeOnChain({
-      address: ESCROW_ADDRESS,
-      abi: ESCROW_ABI,
-      functionName: "disputeMilestone",
-      args: [grantId, BigInt(milestoneIndex)],
-    });
+  async function handleDispute(milestoneIndex: number) {
+    setVerifyError(null);
+    try {
+      await disputeOnChain({
+        address: ESCROW_ADDRESS,
+        abi: ESCROW_ABI,
+        functionName: "disputeMilestone",
+        args: [grantId, BigInt(milestoneIndex)],
+      });
+    } catch (e) {
+      setVerifyError(parseError(e));
+    }
   }
 
   if (!grant) {
@@ -179,6 +211,21 @@ export default function GrantDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
       </div>
+
+      {/* Global error banner */}
+      {verifyError && (
+        <div className="bg-red-900/40 border border-red-500/30 rounded-[16px] p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <span className="text-red-400 text-lg shrink-0">!</span>
+            <div>
+              <p className="text-red-300 text-sm font-medium">{verifyError}</p>
+              <button onClick={() => setVerifyError(null)} className="text-red-400/60 text-xs mt-1 hover:text-red-300">
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Milestones */}
       <h2 className="text-xl sm:text-2xl lg:text-[40px] mb-4 sm:mb-6">Milestones</h2>
