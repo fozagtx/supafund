@@ -94,6 +94,13 @@ export default function GrantDetailPage({ params }: { params: Promise<{ id: stri
     setVerifyingIdx(milestoneIndex);
     setVerifyError(null);
 
+    const cleanHash = commitHash.trim().replace(/^0x/i, "");
+    if (!/^[0-9a-f]{40}$/i.test(cleanHash)) {
+      setVerifyError("Commit hash must be exactly 40 hex characters (0-9, a-f). You entered " + cleanHash.length + " characters.");
+      setVerifyingIdx(null);
+      return;
+    }
+
     try {
       // 1. Call TEE agent
       const res = await fetch(`${TEE_AGENT_URL}/verify`, {
@@ -102,9 +109,9 @@ export default function GrantDetailPage({ params }: { params: Promise<{ id: stri
         body: JSON.stringify({
           grant_id: Number(grantId),
           milestone_index: milestoneIndex,
-          repo_owner: repoOwner,
-          repo_name: repoName,
-          commit_hash: commitHash,
+          repo_owner: repoOwner.trim(),
+          repo_name: repoName.trim(),
+          commit_hash: commitHash.trim().replace(/^0x/i, ""),
           expected_prefix: milestones?.[milestoneIndex]?.requiredGitCommitPrefix,
         }),
       });

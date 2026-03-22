@@ -1,4 +1,4 @@
-use alloy::primitives::{FixedBytes, U256};
+use alloy::primitives::{address, FixedBytes, U256};
 use alloy::signers::{local::PrivateKeySigner, SignerSync};
 use alloy::sol;
 use alloy::sol_types::SolStruct;
@@ -214,9 +214,12 @@ async fn verify_milestone(
     };
 
     // 4. EIP-712 sign the attestation
+    // Domain MUST match OpenZeppelin EIP712("SupaFund", "1") deployed at TEEOracle on Base Sepolia
     let domain = eip712_domain! {
         name: "SupaFund",
         version: "1",
+        chain_id: 84532,
+        verifying_contract: address!("F5baa3381436e0C8818fB5EA3dA9d40C6c49C70D"),
     };
 
     let signing_hash = attestation.eip712_signing_hash(&domain);
