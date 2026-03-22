@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseUnits, stringToHex, padHex } from "viem";
+import { parseUnits } from "viem";
 import { ESCROW_ABI, ESCROW_ADDRESS, ERC20_ABI, USDC_ADDRESS } from "@/config/contracts";
 
 const EXPLORER = "https://sepolia.basescan.org";
@@ -41,9 +41,14 @@ export default function CreateGrantPage() {
 
   function handleCreate() {
     const amounts = milestones.map((m) => parseUnits(m.amount, 6));
-    const prefixes = milestones.map((m) =>
-      padHex(stringToHex(m.gitCommitPrefix, { size: 32 }), { size: 32, dir: "right" })
-    );
+    const prefixes = milestones.map((m) => {
+      // If empty, pass bytes32(0) — means "any commit accepted"
+      const raw = m.gitCommitPrefix.trim().replace(/^0x/i, "");
+      if (!raw) return "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
+      // Pad hex prefix to bytes32 (right-padded with zeros)
+      const hexStr = `0x${raw.padEnd(64, "0")}` as `0x${string}`;
+      return hexStr;
+    });
     create({
       address: ESCROW_ADDRESS,
       abi: ESCROW_ABI,
@@ -144,13 +149,19 @@ export default function CreateGrantPage() {
                     placeholder="Amount (USDC)"
                     className="w-full bg-surface-3 text-text-primary rounded-full px-4 sm:px-5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yo-yellow placeholder:text-muted"
                   />
-                  <input
-                    type="text"
-                    value={m.gitCommitPrefix}
-                    onChange={(e) => updateMilestone(i, "gitCommitPrefix", e.target.value)}
-                    placeholder="Git commit prefix"
-                    className="w-full bg-surface-3 text-text-primary rounded-full px-4 sm:px-5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yo-yellow placeholder:text-muted"
-                  />
+                  <div>
+                    <input
+                      type="text"
+                      value={m.gitCommitPrefix}
+                      onChange={(e) => updateMilestone(i, "gitCommitPrefix", e.target.value.replace(/[^0-9a-fA-F]/g, ""))}
+                      placeholder="Git commit prefix (optional — leave empty to accept any commit)"
+                      maxLength={40}
+                      className="w-full bg-surface-3 text-text-primary rounded-full px-4 sm:px-5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-yo-yellow placeholder:text-muted font-mono"
+                    />
+                    <p className="text-muted text-[11px] mt-1 px-4">
+                      Hex only (0-9, a-f). Leave empty to accept any commit from the repo.
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
