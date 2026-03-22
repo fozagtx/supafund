@@ -1,0 +1,28 @@
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/
+
+# Environment
+.env
+**/.env
+
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+next-env.d.ts
+
+# Rust
+teeOracle/target/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
